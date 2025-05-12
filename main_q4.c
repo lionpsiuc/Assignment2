@@ -25,10 +25,9 @@ int main(int argc, char **argv)
     char name[1024];
     int namelen;
 
-    // Communication modes
+    // Communication modes - removing RMA-related variables
     int use_nonblocking = 0;
     int use_overlapped = 0;
-    int use_rma_fence = 0; // New parameter for RMA with fence
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
@@ -42,7 +41,7 @@ int main(int argc, char **argv)
         // Default grid size is 31 as required in the problem
         nx = 31;
 
-        // Parse command line arguments
+        // Parse command line arguments - simplified without RMA options
         if (argc >= 2)
         {
             nx = atoi(argv[1]);
@@ -50,8 +49,7 @@ int main(int argc, char **argv)
 
         if (argc >= 3)
         {
-            use_nonblocking = atoi(argv[2]) % 10;
-            use_rma_fence = atoi(argv[2]) / 10; // Use tens digit for RMA flag
+            use_nonblocking = atoi(argv[2]);
         }
 
         if (argc >= 4)
@@ -67,11 +65,7 @@ int main(int argc, char **argv)
 
         printf("Grid size: %d x %d\n", nx, nx);
 
-        if (use_rma_fence)
-        {
-            printf("Using RMA communication with MPI_Win_fence\n");
-        }
-        else if (use_nonblocking)
+        if (use_nonblocking)
         {
             printf("Using non-blocking communication\n");
         }
@@ -83,10 +77,9 @@ int main(int argc, char **argv)
         printf("Using %s computation\n", use_overlapped ? "overlapped" : "standard");
     }
 
-    // Broadcast configuration parameters
+    // Broadcast configuration parameters - removed RMA broadcast
     MPI_Bcast(&nx, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&use_nonblocking, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&use_rma_fence, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&use_overlapped, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     ny = nx;
@@ -106,7 +99,7 @@ int main(int argc, char **argv)
         }
     }
 
-    // Initialize the 2D Cartesian topology - pass the array 'a' as required by the new function signature
+    // Initialize the 2D Cartesian topology
     init_cart2d(&cart2d, MPI_COMM_WORLD, nx, ny, a);
 
     // Set boundary conditions
@@ -120,31 +113,12 @@ int main(int argc, char **argv)
     MPI_Barrier(cart2d.cart_comm);
     t1 = MPI_Wtime();
 
-    // Main iteration loop
+    // Main iteration loop - removed RMA option
     glob_diff = 1000.0;
     for (it = 0; it < maxit && glob_diff > tol; it++)
     {
         // Update grid using Jacobi iteration with the selected communication method
-        if (use_rma_fence)
-        {
-            // Using RMA with fence synchronization
-            if (use_overlapped)
-            {
-                // Not implemented yet - could be a future enhancement
-                fprintf(stderr, "RMA with overlapped computation not implemented\n");
-                MPI_Abort(MPI_COMM_WORLD, 1);
-            }
-            else
-            {
-                // Standard RMA with fence synchronization
-                exchange_ghost_rma_fence(a, nx, ny, &cart2d);
-                sweep2d(a, f, b, nx, ny, &cart2d);
-
-                exchange_ghost_rma_fence(b, nx, ny, &cart2d);
-                sweep2d(b, f, a, nx, ny, &cart2d);
-            }
-        }
-        else if (use_nonblocking)
+        if (use_nonblocking)
         {
             // Using non-blocking communication
             if (use_overlapped)
@@ -216,11 +190,8 @@ int main(int argc, char **argv)
     if (myid == 0)
     {
         char filename[100];
-        if (use_rma_fence)
-        {
-            sprintf(filename, "poisson2d_sol_rma_fence_nx%d_np%d", nx, nprocs);
-        }
-        else if (use_nonblocking)
+        // Removed RMA condition for filename
+        if (use_nonblocking)
         {
             if (use_overlapped)
             {
@@ -239,8 +210,6 @@ int main(int argc, char **argv)
         // Write the solution to file
         write_grid(filename, global_a, nx, ny);
         printf("Solution written to file: %s\n", filename);
-
-        // Optionally verify the global solution by comparing with analytical solution
 
         // Global Error Verification
         double global_max_error = 0.0;

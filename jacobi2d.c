@@ -8,7 +8,7 @@
 #define TAG_VERTICAL_EXCHANGE 100
 #define TAG_HORIZONTAL_EXCHANGE 101
 
-extern MPI_Aint offset_up, offset_down, offset_left, offset_right;
+MPI_Aint offset_up = 0, offset_down = 0, offset_left = 0, offset_right = 0;
 
 void init_cart2d(Cart2D *cart2d, MPI_Comm comm_old, int nx, int ny, double grid[][maxn])
 {
@@ -275,7 +275,7 @@ void exchange_ghost_rma_fence(double grid[][maxn], int nx, int ny, Cart2D *cart2
     {
         // Get the bottom row from the top neighbor into my top ghost row
         MPI_Get(&grid[0][1], cart2d->local_size[1], MPI_DOUBLE,
-                cart2d->nbr_up, (cart2d->local_size[0] * maxn) + 1,
+                cart2d->nbr_up, offset_up,
                 cart2d->local_size[1], MPI_DOUBLE, cart2d->grid_win);
     }
 
@@ -284,7 +284,7 @@ void exchange_ghost_rma_fence(double grid[][maxn], int nx, int ny, Cart2D *cart2
     {
         // Get the top row from the bottom neighbor into my bottom ghost row
         MPI_Get(&grid[cart2d->local_size[0] + 1][1], cart2d->local_size[1], MPI_DOUBLE,
-                cart2d->nbr_down, 1 * maxn + 1,
+                cart2d->nbr_down, offset_down,
                 cart2d->local_size[1], MPI_DOUBLE, cart2d->grid_win);
     }
 
@@ -293,7 +293,7 @@ void exchange_ghost_rma_fence(double grid[][maxn], int nx, int ny, Cart2D *cart2
     {
         // Get the rightmost column from left neighbor into my left ghost column
         MPI_Get(&grid[1][0], 1, cart2d->column_type,
-                cart2d->nbr_left, 1 * maxn + cart2d->local_size[1],
+                cart2d->nbr_left, offset_left,
                 1, cart2d->column_type, cart2d->grid_win);
     }
 
@@ -302,7 +302,7 @@ void exchange_ghost_rma_fence(double grid[][maxn], int nx, int ny, Cart2D *cart2
     {
         // Get the leftmost column from right neighbor into my right ghost column
         MPI_Get(&grid[1][cart2d->local_size[1] + 1], 1, cart2d->column_type,
-                cart2d->nbr_right, 1 * maxn + 1,
+                cart2d->nbr_right, offset_right,
                 1, cart2d->column_type, cart2d->grid_win);
     }
 
@@ -310,7 +310,7 @@ void exchange_ghost_rma_fence(double grid[][maxn], int nx, int ny, Cart2D *cart2
     MPI_Win_fence(0, cart2d->grid_win);
 }
 
-#define INDEX(i, j) ((i) * maxn + (j)
+#define INDEX(i, j) ((i) * maxn + (j))
 
 void share_remote_offsets(Cart2D *cart2d) {
   MPI_Status status;
