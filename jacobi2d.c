@@ -5,6 +5,11 @@
 #include "jacobi2d.h"
 #include "poisson1d.h"
 
+#define TAG_VERTICAL_EXCHANGE 100
+#define TAG_HORIZONTAL_EXCHANGE 101
+
+extern MPI_Aint offset_up, offset_down, offset_left, offset_right;
+
 void init_cart2d(Cart2D *cart2d, MPI_Comm comm_old, int nx, int ny, double grid[][maxn])
 {
     int nprocs, rank;
@@ -307,40 +312,55 @@ void exchange_ghost_rma_fence(double grid[][maxn], int nx, int ny, Cart2D *cart2
 
 #define INDEX(i, j) ((i) * maxn + (j))
 
-MPI_Aint offset_up, offset_down, offset_left, offset_right;
+void share_remote_offsets(Cart2D *cart2d) {
+  MPI_Status status;
 
-void share_remote_offsets(Cart2D *cart2d)
-{
-    MPI_Status status;
-    MPI_Aint my_offset_up = INDEX(1, 1);
-    MPI_Aint my_offset_down = INDEX(cart2d->local_size[0], 1);
-    MPI_Aint my_offset_left = INDEX(1, 1);
-    MPI_Aint my_offset_right = INDEX(1, cart2d->local_size[1]);
+  // Calculate displacements to my own data regions that my neighbors will access.
+  // For rows (UP/DOWN neighbors):
+  MPI_Aint my_first_row_disp = INDEX(1, 1); // Offset to the start of my first actual data row
+  MPI_Aint my_last_row_disp  = INDEX(cart2d->local_size[0], 1); // Offset to the start of my last actual data row
 
-    if (cart2d->nbr_up != MPI_PROC_NULL)
-    {
-        MPI_Sendrecv(&my_offset_down, 1, MPI_AINT, cart2d->nbr_up, 0,
-                     &offset_up, 1, MPI_AINT, cart2d->nbr_up, 0,
-                     cart2d->cart_comm, &status);
-    }
-    if (cart2d->nbr_down != MPI_PROC_NULL)
-    {
-        MPI_Sendrecv(&my_offset_up, 1, MPI_AINT, cart2d->nbr_down, 1,
-                     &offset_down, 1, MPI_AINT, cart2d->nbr_down, 1,
-                     cart2d->cart_comm, &status);
-    }
-    if (cart2d->nbr_left != MPI_PROC_NULL)
-    {
-        MPI_Sendrecv(&my_offset_right, 1, MPI_AINT, cart2d->nbr_left, 2,
-                     &offset_left, 1, MPI_AINT, cart2d->nbr_left, 2,
-                     cart2d->cart_comm, &status);
-    }
-    if (cart2d->nbr_right != MPI_PROC_NULL)
-    {
-        MPI_Sendrecv(&my_offset_left, 1, MPI_AINT, cart2d->nbr_right, 3,
-                     &offset_right, 1, MPI_AINT, cart2d->nbr_right, 3,
-                     cart2d->cart_comm, &status);
-    }
+  // For columns (LEFT/RIGHT neighbors), using MPI_Type_vector, the displacement is to the first element.
+  MPI_Aint my_first_col_disp = INDEX(1, 1); // Offset to grid[1][1] (start of my first data column)
+  MPI_Aint my_last_col_disp  = INDEX(1, cart2d->local_size[1]); // Offset to grid[1][local_size[1]] (start of my last data column)
+
+  // --- Vertical Exchange (Up/Down Neighbors) ---
+  // Current process P needs to get its nbr_up's LAST row. nbr_up needs to send its my_last_row_disp.
+  // P will store this received offset in P.offset_up.
+  // Symmetrically, P sends its my_first_row_disp to nbr_up (because nbr_up sees P as its nbr_down and needs P's first row).
+  if (cart2d->nbr_up != MPI_PROC_NULL) {
+      MPI_Sendrecv(&my_first_row_disp, 1, MPI_AINT, cart2d->nbr_up, TAG_VERTICAL_EXCHANGE,
+                   &offset_up,        1, MPI_AINT, cart2d->nbr_up, TAG_VERTICAL_EXCHANGE,
+                   cart2d->cart_comm, &status);
+  }
+
+  // Current process P needs to get its nbr_down's FIRST row. nbr_down needs to send its my_first_row_disp.
+  // P will store this received offset in P.offset_down.
+  // Symmetrically, P sends its my_last_row_disp to nbr_down (because nbr_down sees P as its nbr_up and needs P's last row).
+  if (cart2d->nbr_down != MPI_PROC_NULL) {
+      MPI_Sendrecv(&my_last_row_disp,  1, MPI_AINT, cart2d->nbr_down, TAG_VERTICAL_EXCHANGE,
+                   &offset_down,      1, MPI_AINT, cart2d->nbr_down, TAG_VERTICAL_EXCHANGE,
+                   cart2d->cart_comm, &status);
+  }
+
+  // --- Horizontal Exchange (Left/Right Neighbors) ---
+  // Current process P needs to get its nbr_left's LAST column. nbr_left needs to send its my_last_col_disp.
+  // P will store this received offset in P.offset_left.
+  // Symmetrically, P sends its my_first_col_disp to nbr_left (as nbr_left sees P as its nbr_right).
+  if (cart2d->nbr_left != MPI_PROC_NULL) {
+      MPI_Sendrecv(&my_first_col_disp, 1, MPI_AINT, cart2d->nbr_left, TAG_HORIZONTAL_EXCHANGE,
+                   &offset_left,      1, MPI_AINT, cart2d->nbr_left, TAG_HORIZONTAL_EXCHANGE,
+                   cart2d->cart_comm, &status);
+  }
+
+  // Current process P needs to get its nbr_right's FIRST column. nbr_right needs to send its my_first_col_disp.
+  // P will store this received offset in P.offset_right.
+  // Symmetrically, P sends its my_last_col_disp to nbr_right (as nbr_right sees P as its nbr_left).
+  if (cart2d->nbr_right != MPI_PROC_NULL) {
+      MPI_Sendrecv(&my_last_col_disp,  1, MPI_AINT, cart2d->nbr_right, TAG_HORIZONTAL_EXCHANGE,
+                   &offset_right,     1, MPI_AINT, cart2d->nbr_right, TAG_HORIZONTAL_EXCHANGE,
+                   cart2d->cart_comm, &status);
+  }
 }
 
 void exchange_ghost_rma_pscw(double grid[][maxn], int nx, int ny, Cart2D *cart2d)

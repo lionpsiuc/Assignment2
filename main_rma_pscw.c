@@ -95,6 +95,8 @@ int main(int argc, char **argv)
     init_grid2d(a, f, nx, ny, &cart2d);
     init_grid2d(b, f, nx, ny, &cart2d);
 
+    share_remote_offsets(&cart2d);
+
     // Start timer
     MPI_Barrier(cart2d.cart_comm);
     t1 = MPI_Wtime();

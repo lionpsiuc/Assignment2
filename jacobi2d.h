@@ -44,6 +44,8 @@ void exchange_ghost_nonblocking(double grid[][maxn], int nx, int ny, Cart2D *car
 // Exchange ghost cells using RMA with MPI_Win_fence
 void exchange_ghost_rma_fence(double grid[][maxn], int nx, int ny, Cart2D *cart2d);
 
+void share_remote_offsets(Cart2D *cart2d);
+
 // Exchange ghost cells using RMA with MPI_Win_post/start/complete/wait
 void exchange_ghost_rma_pscw(double grid[][maxn], int nx, int ny, Cart2D *cart2d);
 
