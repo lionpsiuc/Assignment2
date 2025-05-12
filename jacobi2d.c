@@ -8,7 +8,7 @@
 #define TAG_VERTICAL_EXCHANGE 100
 #define TAG_HORIZONTAL_EXCHANGE 101
 
-extern MPI_Aint offset_up, offset_down, offset_left, offset_right;
+MPI_Aint offset_up, offset_down, offset_left, offset_right;
 
 void init_cart2d(Cart2D *cart2d, MPI_Comm comm_old, int nx, int ny, double grid[][maxn])
 {
