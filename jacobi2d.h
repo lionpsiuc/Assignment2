@@ -27,6 +27,15 @@ typedef struct
 
     // RMA window for the grid
     MPI_Win grid_win;
+
+    // Groups for PSCW operations
+    MPI_Group world_group;  // Group of all processes in the communicator
+    MPI_Group post_group;   // Group of processes that will access my data (neighbors)
+    MPI_Group start_group;  // Group of processes whose data I will access (neighbors)
+    int *post_ranks;        // Ranks in post group
+    int *start_ranks;       // Ranks in start group
+    int post_count;         // Number of ranks in post group
+    int start_count;        // Number of ranks in start group
 } Cart2D;
 
 // Initialize the 2D Cartesian topology

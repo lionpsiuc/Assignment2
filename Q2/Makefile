@@ -1,10 +1,11 @@
 CC = mpicc
-CFLAGS = -Wall -g
+CFLAGS = -Wall -g -std=c99
+EXEC = matmul
 
-all: matrix_vector
+all: $(EXEC)
 
-matrix_vector: matrix_vector_multiply.c
-	$(CC) $(CFLAGS) -o matrix_vector matrix_vector_multiply.c
+$(EXEC): matmul.c
+	$(CC) $(CFLAGS) -o $(EXEC) matmul.c
 
 clean:
-	rm -f matrix_vector    
+	rm -f $(EXEC) *.o

@@ -324,10 +324,11 @@ void share_remote_offsets(Cart2D *cart2d) {
   MPI_Aint my_first_col_disp = INDEX(1, 1); // Offset to grid[1][1] (start of my first data column)
   MPI_Aint my_last_col_disp  = INDEX(1, cart2d->local_size[1]); // Offset to grid[1][local_size[1]] (start of my last data column)
 
-  // --- Vertical Exchange (Up/Down Neighbors) ---
+  // Vertical Exchange (Up/Down Neighbors)
+
   // Current process P needs to get its nbr_up's LAST row. nbr_up needs to send its my_last_row_disp.
   // P will store this received offset in P.offset_up.
-  // Symmetrically, P sends its my_first_row_disp to nbr_up (because nbr_up sees P as its nbr_down and needs P's first row).
+  // P sends its my_first_row_disp to nbr_up (because nbr_up sees P as its nbr_down and needs P's first row).
   if (cart2d->nbr_up != MPI_PROC_NULL) {
       MPI_Sendrecv(&my_first_row_disp, 1, MPI_AINT, cart2d->nbr_up, TAG_VERTICAL_EXCHANGE,
                    &offset_up,        1, MPI_AINT, cart2d->nbr_up, TAG_VERTICAL_EXCHANGE,
@@ -336,17 +337,18 @@ void share_remote_offsets(Cart2D *cart2d) {
 
   // Current process P needs to get its nbr_down's FIRST row. nbr_down needs to send its my_first_row_disp.
   // P will store this received offset in P.offset_down.
-  // Symmetrically, P sends its my_last_row_disp to nbr_down (because nbr_down sees P as its nbr_up and needs P's last row).
+  // P sends its my_last_row_disp to nbr_down (because nbr_down sees P as its nbr_up and needs P's last row).
   if (cart2d->nbr_down != MPI_PROC_NULL) {
       MPI_Sendrecv(&my_last_row_disp,  1, MPI_AINT, cart2d->nbr_down, TAG_VERTICAL_EXCHANGE,
                    &offset_down,      1, MPI_AINT, cart2d->nbr_down, TAG_VERTICAL_EXCHANGE,
                    cart2d->cart_comm, &status);
   }
 
-  // --- Horizontal Exchange (Left/Right Neighbors) ---
+  // Horizontal Exchange (Left/Right Neighbors)
+
   // Current process P needs to get its nbr_left's LAST column. nbr_left needs to send its my_last_col_disp.
   // P will store this received offset in P.offset_left.
-  // Symmetrically, P sends its my_first_col_disp to nbr_left (as nbr_left sees P as its nbr_right).
+  // P sends its my_first_col_disp to nbr_left (as nbr_left sees P as its nbr_right).
   if (cart2d->nbr_left != MPI_PROC_NULL) {
       MPI_Sendrecv(&my_first_col_disp, 1, MPI_AINT, cart2d->nbr_left, TAG_HORIZONTAL_EXCHANGE,
                    &offset_left,      1, MPI_AINT, cart2d->nbr_left, TAG_HORIZONTAL_EXCHANGE,
@@ -355,7 +357,7 @@ void share_remote_offsets(Cart2D *cart2d) {
 
   // Current process P needs to get its nbr_right's FIRST column. nbr_right needs to send its my_first_col_disp.
   // P will store this received offset in P.offset_right.
-  // Symmetrically, P sends its my_last_col_disp to nbr_right (as nbr_right sees P as its nbr_left).
+  // P sends its my_last_col_disp to nbr_right (as nbr_right sees P as its nbr_left).
   if (cart2d->nbr_right != MPI_PROC_NULL) {
       MPI_Sendrecv(&my_last_col_disp,  1, MPI_AINT, cart2d->nbr_right, TAG_HORIZONTAL_EXCHANGE,
                    &offset_right,     1, MPI_AINT, cart2d->nbr_right, TAG_HORIZONTAL_EXCHANGE,
